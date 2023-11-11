@@ -120,6 +120,15 @@ db.serialize(() => {
       QuarterID INTEGER REFERENCES Quarters(QuarterID)
     )
   `);
+
+  db.run(`
+    CREATE TABLE Users (
+       UserNo Intege PRIMARY KEY,
+       username TEXT,
+       password TEXT,
+       type TEXT
+    )
+  `)
 });
 
 // Close the database connection
