@@ -1,45 +1,95 @@
-import express from 'express';
+const sqlite3 = require('sqlite3').verbose();
+const express = require('express');
+const bodyParser = require('body-parser');
 
 const app = express();
+const port = 3000;
 
-// gives syntax highlighting for strings containing html. For example, html`<p>hello, world!</p>`
-const html = String.raw;
+app.use(bodyParser.json());
 
-app.get('/', (req, res) => {
-  res.send(html`
-<!DOCTYPE html>
-<html>
-
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width">
-  <title>replit</title>
-</head>
-
-<body>
-  <!--
-  This script is all that's necessary to get htmx working on this page! Note
-  that you'll need to include this script on every page that uses htmx.
-  -->
-  <script
-    src="https://unpkg.com/htmx.org@1.9.3"
-    crossorigin="anonymous"
-  ></script>
-  
-  Hello world
-
-  <!--
-  This script places a badge on your repl's full-browser view back to your repl's cover
-  page. Try various colors for the theme: dark, light, red, orange, yellow, lime, green,
-  teal, blue, blurple, magenta, pink!
-  -->
-  <script src="https://replit.com/public/js/replit-badge-v2.js" theme="dark" position="bottom-right"></script>
-</body>
-
-</html>
-`);
+let db = new sqlite3.Database('student.db', (err) => {
+  if (err) {
+    console.error(err.message);
+  } else {
+    console.log('Connected to the student database.');
+  }
 });
 
-app.listen(3000, () => {
-  console.log('Express server initialized');
+// GET all students
+app.get('/students', (req, res) => {
+  db.all('SELECT * FROM Students', (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
+// GET a specific student by ID
+app.get('/students/:id', (req, res) => {
+  const { id } = req.params;
+  db.get('SELECT * FROM Students WHERE StudentID = ?', [id], (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    if (!row) {
+      res.status(404).send('Student not found');
+      return;
+    }
+    res.json(row);
+  });
+});
+
+// POST a new student
+app.post('/students', (req, res) => {
+  const { firstName, lastName, contactInfo } = req.body;
+  db.run(
+    'INSERT INTO Students (FirstName, LastName, ContactInfo) VALUES (?, ?, ?)',
+    [firstName, lastName, contactInfo],
+    function (err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({
+        message: 'Student added successfully',
+        studentID: this.lastID,
+      });
+    }
+  );
+});
+
+// PUT/UPDATE a specific student by ID
+app.put('/students/:id', (req, res) => {
+  const { firstName, lastName, contactInfo } = req.body;
+  const { id } = req.params;
+  db.run(
+    'UPDATE Students SET FirstName = ?, LastName = ?, ContactInfo = ? WHERE StudentID = ?',
+    [firstName, lastName, contactInfo, id],
+    (err) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.send('Student updated successfully');
+    }
+  );
+});
+
+// DELETE a specific student by ID
+app.delete('/students/:id', (req, res) => {
+  const { id } = req.params;
+  db.run('DELETE FROM Students WHERE StudentID = ?', [id], (err) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.send('Student deleted successfully');
+  });
+});
+
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}/`);
 });
